@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Dashboard | Cloud Infrastructure Solution</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body class="dashboard-body">
+
+<div class="dashboard-wrapper">
+
+  <!-- SIDEBAR -->
+  <aside class="dashboard-sidebar">
+    <div class="sidebar-header">
+      <h2>CloudInfrastructure</h2>
+      <p>Solution</p>
+    </div>
+
+    <ul class="sidebar-menu">
+      <li class="active">Dashboard</li>
+      <li>Accounts</li>
+      <li>Orders</li>
+      <li>Notifications</li>
+      <li>Support</li>
+      <li>Security</li>
+      <li>Settings</li>
+    </ul>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="dashboard-content">
+
+    <!-- HEADER -->
+    <header class="dashboard-header">
+      <h1>Dashboard Overview</h1>
+
+      <div class="user-box">
+        <span id="userEmail">User</span>
+       <div class="avatar" id="avatarLetter">A</div>
+        <button onclick="logout()">Logout</button>
+      </div>
+    </header>
+
+    <!-- CARDS -->
+    <section class="kpi-grid">
+      <div class="kpi-card">
+        <h3>Account Events</h3>
+        <strong>1,248</strong>
+      </div>
+
+      <div class="kpi-card">
+        <h3>Orders</h3>
+        <strong>842</strong>
+      </div>
+
+      <div class="kpi-card">
+        <h3>Notifications</h3>
+        <strong>27</strong>
+      </div>
+
+      <div class="kpi-card">
+        <h3>Support Tickets</h3>
+        <strong>214</strong>
+      </div>
+    </section>
+
+  </div>
+
+</div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const email = localStorage.getItem("userEmail");
+
+    if (!email) {
+      window.location.href = "login.html";
+    } else {
+      document.getElementById("userEmail").textContent = email;
+
+      const avatar = document.getElementById("avatarLetter");
+      if (avatar) {
+        avatar.textContent = email.charAt(0).toUpperCase();
+      }
+    }
+  });
+</script>
+
+</body>
+</html>
