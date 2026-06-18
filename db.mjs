@@ -5,6 +5,7 @@ sqlite3.verbose();
 
 export const db = new sqlite3.Database("./cloudinfrastructure.db");
 
+// ✅ RUN helper
 export function run(sql, params = []) {
   return new Promise((resolve, reject) => {
     db.run(sql, params, function (err) {
@@ -14,6 +15,7 @@ export function run(sql, params = []) {
   });
 }
 
+// ✅ GET helper
 export function get(sql, params = []) {
   return new Promise((resolve, reject) => {
     db.get(sql, params, (err, row) => {
@@ -23,15 +25,19 @@ export function get(sql, params = []) {
   });
 }
 
+// ✅ INIT DATABASE
 export async function initDB() {
+  // ✅ ONE clean table structure (with name included)
   await run(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT,
       email TEXT UNIQUE,
       password_hash TEXT
     )
   `);
 
+  // ✅ Create demo user (for testing login)
   const user = await get(
     "SELECT * FROM users WHERE email = ?",
     ["demo@mail.com"]
@@ -39,9 +45,10 @@ export async function initDB() {
 
   if (!user) {
     const hash = await bcrypt.hash("123456", 10);
+
     await run(
-      "INSERT INTO users (email, password_hash) VALUES (?, ?)",
-      ["demo@mail.com", hash]
+      "INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)",
+      ["Demo User", "demo@mail.com", hash]
     );
   }
 

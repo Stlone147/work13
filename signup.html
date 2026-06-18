@@ -25,8 +25,7 @@
     </div>
   </div>
 
- 
-<script>
+ <script>
   console.log("✅ SCRIPT LOADED");
 
   document.getElementById("signupForm").addEventListener("submit", async (e) => {
@@ -48,6 +47,7 @@
       });
 
       const data = await response.json();
+
       alert(data.message);
 
       if (response.ok) {
