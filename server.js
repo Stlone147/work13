@@ -1,7 +1,11 @@
 import express from "express";
+import cors from "cors";
 import { initDB } from "./db.mjs";
 
 const app = express();
+
+// ✅ ALLOW FRONTEND TO CONNECT
+app.use(cors());
 
 // allow JSON data
 app.use(express.json());
