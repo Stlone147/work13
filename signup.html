@@ -25,7 +25,8 @@
     </div>
   </div>
 
-  <script>
+ 
+<script>
   console.log("✅ SCRIPT LOADED");
 
   document.getElementById("signupForm").addEventListener("submit", async (e) => {
@@ -55,7 +56,7 @@
 
     } catch (err) {
       console.error(err);
-      alert("Something went wrong.");
+      alert("❌ " + err.message);
     }
   });
 </script>
