@@ -2,11 +2,13 @@ import express from "express";
 import cors from "cors";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
+import { sendResetEmail } from "./email.mjs";
 import { initDB, run, get } from "./db.mjs";
 
 const app = express();
 
-// ✅ FIXED CORS (NO BROKEN HTML)
+// ✅ CLEAN CORS (VERY IMPORTANT)
 app.use(
   cors({
     origin: [
@@ -23,24 +25,25 @@ app.use(
 // ✅ Parse JSON
 app.use(express.json());
 
-// ✅ Initialize PostgreSQL
+// ✅ Initialize DB
 await initDB();
 
-// ✅ Secure JWT secret
+// ✅ JWT Secret
 const SECRET = process.env.JWT_SECRET;
 
 if (!SECRET) {
   throw new Error("JWT_SECRET is not set");
 }
 
-// ✅ Test route
+// =========================
+// ✅ ROOT ROUTE
+// =========================
 app.get("/", (req, res) => {
-  res.send("✅ CloudInfrastructureSolution backend running");
+  res.send("✅ Backend running");
 });
 
-
 // =========================
-// ✅ SIGNUP ROUTE
+// ✅ SIGNUP
 // =========================
 app.post("/signup", async (req, res) => {
   try {
@@ -50,20 +53,17 @@ app.post("/signup", async (req, res) => {
       return res.status(400).json({ message: "All fields required" });
     }
 
-    // ✅ Check if user exists (PostgreSQL syntax)
     const existingUser = await get(
       "SELECT * FROM users WHERE email = $1",
       [email]
     );
 
     if (existingUser) {
-      return res.status(400).json({ message: "Email already exists" });
+      return res.status(400).json({ message: "Email exists" });
     }
 
-    // ✅ Hash password
     const password_hash = await bcrypt.hash(password, 10);
 
-    // ✅ Insert user (PostgreSQL syntax)
     await run(
       "INSERT INTO users (name, email, password_hash) VALUES ($1, $2, $3)",
       [name, email, password_hash]
@@ -77,19 +77,13 @@ app.post("/signup", async (req, res) => {
   }
 });
 
-
 // =========================
-// ✅ LOGIN ROUTE
+// ✅ LOGIN
 // =========================
 app.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    if (!email || !password) {
-      return res.status(400).json({ message: "Missing fields" });
-    }
-
-    // ✅ Fetch user (PostgreSQL syntax)
     const user = await get(
       "SELECT * FROM users WHERE email = $1",
       [email]
@@ -99,32 +93,21 @@ app.post("/login", async (req, res) => {
       return res.status(401).json({ message: "User not found" });
     }
 
-    // ✅ Compare password
     const match = await bcrypt.compare(password, user.password_hash);
 
     if (!match) {
       return res.status(401).json({ message: "Wrong password" });
     }
 
-    // ✅ Generate JWT
     const token = jwt.sign(
-      {
-        id: user.id,
-        email: user.email,
-        name: user.name
-      },
+      { id: user.id, email: user.email, name: user.name },
       SECRET,
       { expiresIn: "7d" }
     );
 
     res.json({
-      message: "✅ Login successful",
       token,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email
-      }
+      user: { id: user.id, name: user.name, email: user.email }
     });
 
   } catch (err) {
@@ -133,59 +116,133 @@ app.post("/login", async (req, res) => {
   }
 });
 
-
 // =========================
 // ✅ AUTH MIDDLEWARE
 // =========================
 function verifyToken(req, res, next) {
-  const authHeader = req.headers.authorization;
+  const header = req.headers.authorization;
 
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res.status(401).json({ message: "No token provided" });
-  }
+  if (!header) return res.status(401).json({ message: "No token" });
 
-  const token = authHeader.split(" ")[1];
+  const token = header.split(" ")[1];
 
   try {
-    const decoded = jwt.verify(token, SECRET);
-    req.user = decoded;
+    req.user = jwt.verify(token, SECRET);
     next();
-  } catch (err) {
-    return res.status(401).json({ message: "Invalid token" });
+  } catch {
+    res.status(401).json({ message: "Invalid token" });
   }
 }
 
-
 // =========================
-// ✅ PROTECTED ROUTE
+// ✅ USER PROFILE
 // =========================
 app.get("/me", verifyToken, async (req, res) => {
+  const user = await get(
+    "SELECT id, name, email FROM users WHERE id = $1",
+    [req.user.id]
+  );
+
+  res.json({ user });
+});
+
+// =========================
+// ✅ STATS
+// =========================
+app.get("/stats", async (req, res) => {
+  const result = await run("SELECT COUNT(*) AS count FROM users");
+
+  res.json({
+    totalUsers: result.rows[0].count
+  });
+});
+
+// =========================
+// ✅ FORGOT PASSWORD
+// =========================
+app.post("/forgot-password", async (req, res) => {
   try {
+    const { email } = req.body;
+
     const user = await get(
-      "SELECT id, name, email FROM users WHERE id = $1",
-      [req.user.id]
+      "SELECT * FROM users WHERE email = $1",
+      [email]
     );
 
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res.json({
+        message: "If email exists, reset link sent"
+      });
     }
 
-    res.json({ user });
+    const token = crypto.randomBytes(32).toString("hex");
+
+    const hash = crypto
+      .createHash("sha256")
+      .update(token)
+      .digest("hex");
+
+    await run(
+      `INSERT INTO password_reset_tokens (user_id, token_hash, expires_at)
+       VALUES ($1, $2, NOW() + INTERVAL '1 hour')`,
+      [user.id, hash]
+    );
+
+    const resetLink =
+      `${process.env.FRONTEND_URL}/reset-password.html?token=${token}`;
+
+    await sendResetEmail(email, resetLink);
+
+    res.json({ message: "✅ Reset email sent" });
 
   } catch (err) {
-    console.error("ME ERROR:", err);
-    res.status(500).json({ message: "Server error" });
+    console.error(err);
+    res.status(500).json({ message: "Error" });
   }
 });
 
+// =========================
+// ✅ RESET PASSWORD
+// =========================
+app.post("/reset-password", async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
 
-// =========================
-// ✅ LOGOUT ROUTE
-// =========================
-app.post("/logout", (req, res) => {
-  res.json({ message: "✅ Logged out" });
+    const hash = crypto
+      .createHash("sha256")
+      .update(token)
+      .digest("hex");
+
+    const record = await get(
+      `SELECT * FROM password_reset_tokens
+       WHERE token_hash = $1 AND used = false
+       AND expires_at > NOW()`,
+      [hash]
+    );
+
+    if (!record) {
+      return res.status(400).json({ message: "Invalid token" });
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+
+    await run(
+      "UPDATE users SET password_hash = $1 WHERE id = $2",
+      [passwordHash, record.user_id]
+    );
+
+    await run(
+      "UPDATE password_reset_tokens SET used = true WHERE id = $1",
+      [record.id]
+    );
+
+    res.json({ message: "✅ Password reset success" });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Error" });
+  }
 });
-
 
 // =========================
 // ✅ START SERVER
@@ -193,45 +250,5 @@ app.post("/logout", (req, res) => {
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-  console.log(`✅ Server running on port ${PORT}`);
-});
-
-// ✅ update trigger
-// =========================
-// ✅ STATS ROUTE (for dashboard)
-// =========================
-app.get("/stats", async (req, res) => {
-  try {
-    const result = await run("SELECT COUNT(*) FROM users");
-
-    res.json({
-      totalUsers: result.rows[0].count
-    });
-
-  } catch (err) {
-    console.error("STATS ERROR:", err);
-    res.status(500).json({ message: "Error fetching stats" });
-  }
-});
-
-// =========================
-// ✅ ACTIVITY STATS FOR CHART
-// =========================
-app.get("/stats/activity", async (req, res) => {
-  try {
-    const result = await run(`
-      SELECT 
-        DATE(created_at) AS date,
-        COUNT(*) AS count
-      FROM activity_logs
-      GROUP BY date
-      ORDER BY date ASC
-      LIMIT 7
-    `);
-
-    res.json({ data: result.rows });
-
-  } catch (err) {
-    res.status(500).json({ message: "Error fetching chart data" });
-  }
+  console.log("✅ Server running on port " + PORT);
 });
