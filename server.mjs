@@ -29,96 +29,104 @@ app.get("/", (req, res) => {
   res.send("✅ CloudInfrastructureSolution backend running");
 });
 
-// ✅ SIGNUP
 app.post("/signup", async (req, res) => {
   try {
-    console.log("✅ SIGNUP ROUTE HIT");
-    console.log("BODY:", req.body);
-
     const { name, email, password } = req.body;
 
-    // Validate input
-    if (!email || !password) {
-      return res.status(400).json({
-        message: "Email and password are required"
-      });
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: "All fields required" });
     }
 
-    // Check if user already exists
-    const existing = await get(
-      "SELECT * FROM users WHERE email = ?",
+    // ✅ Check if user already exists
+    const existingUser = await get(
+      "SELECT * FROM users WHERE email = $1",
       [email]
     );
 
-    if (existing) {
-      return res.status(400).json({
-        message: "User already exists"
-      });
+    if (existingUser) {
+      return res.status(400).json({ message: "Email already exists" });
     }
 
-    // Hash password
-    const hash = await bcrypt.hash(password, 10);
+    // ✅ Hash password
+    const password_hash = await bcrypt.hash(password, 10);
 
-    // Save user
-    await run(
-      "INSERT INTO users (email, password_hash) VALUES (?, ?)",
-      [email, hash]
+    // ✅ Insert user and RETURN ID
+    const result = await run(
+      "INSERT INTO users (name, email, password_hash) VALUES ($1, $2, $3) RETURNING id",
+      [name, email, password_hash]
     );
 
-    // ✅ Success response
-    res.json({
-      message: "✅ Account created successfully"
-    });
+    const userId = result.rows[0].id;
 
-  } catch (error) {
-    console.error("❌ signup error:", error);
-    res.status(500).json({
-      message: "Server error"
-    });
+    // ✅ Activity log
+    await run(
+      "INSERT INTO activity_logs (user_id, action) VALUES ($1, $2)",
+      [userId, "User signed up"]
+    );
+
+    res.status(201).json({ message: "✅ Signup successful" });
+
+  } catch (err) {
+    console.error("SIGNUP ERROR:", err);
+    res.status(500).json({ message: "Server error" });
   }
 });
 
-// Login
 app.post("/login", async (req, res) => {
   try {
-    console.log("✅ LOGIN ROUTE HIT");
-    console.log("BODY:", req.body);
-
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({
-        message: "Email and password are required"
-      });
+      return res.status(400).json({ message: "Missing fields" });
     }
 
+    // ✅ Get user
     const user = await get(
-      "SELECT * FROM users WHERE email = ?",
+      "SELECT * FROM users WHERE email = $1",
       [email]
     );
 
     if (!user) {
-      return res.status(400).json({
-        message: "Invalid email or password"
-      });
+      return res.status(401).json({ message: "User not found" });
     }
 
-    const valid = await bcrypt.compare(password, user.password_hash);
+    // ✅ Check password
+    const match = await bcrypt.compare(password, user.password_hash);
 
-    if (!valid) {
-      return res.status(400).json({
-        message: "Invalid email or password"
-      });
+    if (!match) {
+      return res.status(401).json({ message: "Wrong password" });
     }
+
+    // ✅ Log activity
+    await run(
+      "INSERT INTO activity_logs (user_id, action) VALUES ($1, $2)",
+      [user.id, "User logged in"]
+    );
+
+    // ✅ Generate token
+    const token = jwt.sign(
+      {
+        id: user.id,
+        email: user.email,
+        name: user.name
+      },
+      SECRET,
+      { expiresIn: "7d" }
+    );
 
     res.json({
-      message: "✅ Login successful"
+      message: "✅ Login successful",
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email
+      }
     });
-  } catch (error) {
-    console.error("❌ login error:", error);
-    res.status(500).json({
-      message: "Server error"
-    });
+
+  } catch (err) {
+    console.error("LOGIN ERROR:", err);
+    res.status(500).json({ message: "Server error" });
   }
 });
 

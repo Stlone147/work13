@@ -213,3 +213,25 @@ app.get("/stats", async (req, res) => {
     res.status(500).json({ message: "Error fetching stats" });
   }
 });
+
+// =========================
+// ✅ ACTIVITY STATS FOR CHART
+// =========================
+app.get("/stats/activity", async (req, res) => {
+  try {
+    const result = await run(`
+      SELECT 
+        DATE(created_at) AS date,
+        COUNT(*) AS count
+      FROM activity_logs
+      GROUP BY date
+      ORDER BY date ASC
+      LIMIT 7
+    `);
+
+    res.json({ data: result.rows });
+
+  } catch (err) {
+    res.status(500).json({ message: "Error fetching chart data" });
+  }
+});

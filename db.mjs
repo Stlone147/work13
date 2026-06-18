@@ -1,56 +1,44 @@
-import sqlite3 from "sqlite3";
-import bcrypt from "bcryptjs";
+import pkg from "pg";
+const { Pool } = pkg;
 
-sqlite3.verbose();
+// ✅ Connect using Render DATABASE_URL
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false
+  }
+});
 
-export const db = new sqlite3.Database("./cloudinfrastructure.db");
-
-// ✅ RUN helper
-export function run(sql, params = []) {
-  return new Promise((resolve, reject) => {
-    db.run(sql, params, function (err) {
-      if (err) reject(err);
-      else resolve(this);
-    });
-  });
-}
-
-// ✅ GET helper
-export function get(sql, params = []) {
-  return new Promise((resolve, reject) => {
-    db.get(sql, params, (err, row) => {
-      if (err) reject(err);
-      else resolve(row);
-    });
-  });
-}
-
-// ✅ INIT DATABASE
 export async function initDB() {
-  // ✅ ONE clean table structure (with name included)
-  await run(`
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       name TEXT,
       email TEXT UNIQUE,
-      password_hash TEXT
+      password_hash TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
 
-  // ✅ Create demo user (for testing login)
-  const user = await get(
-    "SELECT * FROM users WHERE email = ?",
-    ["demo@mail.com"]
-  );
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS activity_logs (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER,
+      action TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
 
-  if (!user) {
-    const hash = await bcrypt.hash("123456", 10);
+  console.log("✅ PostgreSQL ready");
+}
 
-    await run(
-      "INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)",
-      ["Demo User", "demo@mail.com", hash]
-    );
-  }
+// ✅ Helper for INSERT / UPDATE
+export async function run(query, values = []) {
+  return await pool.query(query, values);
+}
 
-  console.log("✅ Database ready");
+// ✅ Helper to get one record
+export async function get(query, values = []) {
+  const result = await pool.query(query, values);
+  return result.rows[0];
 }

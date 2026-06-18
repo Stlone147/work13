@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dashboard | CloudInfrastructureSolution</title>
-
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -100,6 +100,10 @@
       <p>Total Users:</p>
       <p class="stats" id="totalUsers">...</p>
     </div>
+<div class="card">
+  <h2>📊 User Activity Chart</h2>
+  <canvas id="activityChart"></canvas>
+</div>
 
     <!-- PLACEHOLDER FEATURE CARD -->
     <div class="card">
@@ -167,6 +171,42 @@ function logout() {
 }
 
 loadDashboard();
+// ✅ Fetch activity chart data
+const chartRes = await fetch(
+  "https://work13-backend.onrender.com/stats/activity"
+);
+
+const chartData = await chartRes.json();
+
+const labels = chartData.data.map(item => item.date);
+const values = chartData.data.map(item => item.count);
+
+// ✅ Create chart
+const ctx = document.getElementById("activityChart").getContext("2d");
+
+new Chart(ctx, {
+  type: "line",
+  data: {
+    labels: labels,
+    datasets: [{
+      label: "User Activity",
+      data: values,
+      borderColor: "#4f46e5",
+      backgroundColor: "rgba(79,70,229,0.2)",
+      fill: true,
+      tension: 0.3
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: {
+        display: true
+      }
+    }
+  }
+});
+
 </script>
 
 </body>

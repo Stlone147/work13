@@ -1410,3 +1410,37 @@ textarea {
 .auth-links a:hover {
   text-decoration: underline;
 }
+
+.user-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.avatar {
+  width: 40px;
+  height: 40px;
+  background-color: #0b5cff;
+  color: #fff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 16px;
+}
+
+.user-box button {
+  padding: 6px 12px;
+  background-color: #ff4d4f;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.user-box button:hover {
+  background-color: #d9363e;
+}
+
