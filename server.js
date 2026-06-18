@@ -195,3 +195,20 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
 });
+
+// =========================
+// ✅ STATS ROUTE (for dashboard)
+// =========================
+app.get("/stats", async (req, res) => {
+  try {
+    const result = await run("SELECT COUNT(*) FROM users");
+
+    res.json({
+      totalUsers: result.rows[0].count
+    });
+
+  } catch (err) {
+    console.error("STATS ERROR:", err);
+    res.status(500).json({ message: "Error fetching stats" });
+  }
+});
