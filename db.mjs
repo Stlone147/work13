@@ -1,20 +1,6 @@
 import pkg from "pg";
 const { Pool } = pkg;
 
-const required = ["PGHOST", "PGPORT", "PGDATABASE", "PGUSER", "PGPASSWORD"];
-
-for (const key of required) {
-  if (!process.env[key]) {
-    throw new Error(`${key} is not set`);
-  }
-}
-
-// Safe debug: do NOT print password
-console.log("PGHOST =", process.env.PGHOST);
-console.log("PGPORT =", process.env.PGPORT);
-console.log("PGDATABASE =", process.env.PGDATABASE);
-console.log("PGUSER =", process.env.PGUSER);
-
 const pool = new Pool({
   host: process.env.PGHOST,
   port: Number(process.env.PGPORT || 5432),
