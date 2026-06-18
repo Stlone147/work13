@@ -6,7 +6,7 @@ import { initDB, run, get } from "./db.mjs";
 
 const app = express();
 
-// ✅ Allow frontend to connect (FIXED CORS)
+// ✅ FIXED CORS (NO BROKEN HTML)
 app.use(
   cors({
     origin: [
@@ -23,10 +23,10 @@ app.use(
 // ✅ Parse JSON
 app.use(express.json());
 
-// ✅ Initialize database
+// ✅ Initialize PostgreSQL
 await initDB();
 
-// ✅ Secure JWT secret (from Render)
+// ✅ Secure JWT secret
 const SECRET = process.env.JWT_SECRET;
 
 if (!SECRET) {
@@ -50,9 +50,9 @@ app.post("/signup", async (req, res) => {
       return res.status(400).json({ message: "All fields required" });
     }
 
-    // ✅ Check if user exists
+    // ✅ Check if user exists (PostgreSQL syntax)
     const existingUser = await get(
-      "SELECT * FROM users WHERE email = ?",
+      "SELECT * FROM users WHERE email = $1",
       [email]
     );
 
@@ -63,9 +63,9 @@ app.post("/signup", async (req, res) => {
     // ✅ Hash password
     const password_hash = await bcrypt.hash(password, 10);
 
-    // ✅ Store user
+    // ✅ Insert user (PostgreSQL syntax)
     await run(
-      "INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)",
+      "INSERT INTO users (name, email, password_hash) VALUES ($1, $2, $3)",
       [name, email, password_hash]
     );
 
@@ -89,8 +89,9 @@ app.post("/login", async (req, res) => {
       return res.status(400).json({ message: "Missing fields" });
     }
 
+    // ✅ Fetch user (PostgreSQL syntax)
     const user = await get(
-      "SELECT * FROM users WHERE email = ?",
+      "SELECT * FROM users WHERE email = $1",
       [email]
     );
 
@@ -105,7 +106,7 @@ app.post("/login", async (req, res) => {
       return res.status(401).json({ message: "Wrong password" });
     }
 
-    // ✅ Create JWT token
+    // ✅ Generate JWT
     const token = jwt.sign(
       {
         id: user.id,
@@ -161,7 +162,7 @@ function verifyToken(req, res, next) {
 app.get("/me", verifyToken, async (req, res) => {
   try {
     const user = await get(
-      "SELECT id, name, email FROM users WHERE id = ?",
+      "SELECT id, name, email FROM users WHERE id = $1",
       [req.user.id]
     );
 
