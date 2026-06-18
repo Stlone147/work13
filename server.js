@@ -6,7 +6,7 @@ import { initDB, run, get } from "./db.mjs";
 
 const app = express();
 
-// ✅ Allow frontend to connect
+// ✅ Allow frontend to connect (FIXED CORS)
 app.use(
   cors({
     origin: [
@@ -26,8 +26,12 @@ app.use(express.json());
 // ✅ Initialize database
 await initDB();
 
-// ✅ Secret key for JWT
-const SECRET = process.env.JWT_SECRET || "mysecretkey";
+// ✅ Secure JWT secret (from Render)
+const SECRET = process.env.JWT_SECRET;
+
+if (!SECRET) {
+  throw new Error("JWT_SECRET is not set");
+}
 
 // ✅ Test route
 app.get("/", (req, res) => {
@@ -46,7 +50,7 @@ app.post("/signup", async (req, res) => {
       return res.status(400).json({ message: "All fields required" });
     }
 
-    // Check if user already exists
+    // ✅ Check if user exists
     const existingUser = await get(
       "SELECT * FROM users WHERE email = ?",
       [email]
@@ -56,16 +60,17 @@ app.post("/signup", async (req, res) => {
       return res.status(400).json({ message: "Email already exists" });
     }
 
-    // Hash password
+    // ✅ Hash password
     const password_hash = await bcrypt.hash(password, 10);
 
-    // Save user
+    // ✅ Store user
     await run(
       "INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)",
       [name, email, password_hash]
     );
 
     res.json({ message: "✅ Signup successful" });
+
   } catch (err) {
     console.error("SIGNUP ERROR:", err);
     res.status(500).json({ message: "Server error" });
@@ -93,12 +98,14 @@ app.post("/login", async (req, res) => {
       return res.status(401).json({ message: "User not found" });
     }
 
+    // ✅ Compare password
     const match = await bcrypt.compare(password, user.password_hash);
 
     if (!match) {
       return res.status(401).json({ message: "Wrong password" });
     }
 
+    // ✅ Create JWT token
     const token = jwt.sign(
       {
         id: user.id,
@@ -118,6 +125,7 @@ app.post("/login", async (req, res) => {
         email: user.email
       }
     });
+
   } catch (err) {
     console.error("LOGIN ERROR:", err);
     res.status(500).json({ message: "Server error" });
@@ -148,7 +156,7 @@ function verifyToken(req, res, next) {
 
 
 // =========================
-// ✅ PROTECTED ROUTE FOR DASHBOARD
+// ✅ PROTECTED ROUTE
 // =========================
 app.get("/me", verifyToken, async (req, res) => {
   try {
@@ -162,6 +170,7 @@ app.get("/me", verifyToken, async (req, res) => {
     }
 
     res.json({ user });
+
   } catch (err) {
     console.error("ME ERROR:", err);
     res.status(500).json({ message: "Server error" });
@@ -173,7 +182,6 @@ app.get("/me", verifyToken, async (req, res) => {
 // ✅ LOGOUT ROUTE
 // =========================
 app.post("/logout", (req, res) => {
-  // JWT logout is handled on the frontend by deleting the token
   res.json({ message: "✅ Logged out" });
 });
 

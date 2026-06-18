@@ -55,18 +55,21 @@ document.getElementById("loginForm").addEventListener("submit", async (e) => {
     const data = await response.json();
 
     if (response.ok) {
-      localStorage.setItem("userEmail", email);
+      localStorage.setItem("authToken", data.token);
+      localStorage.setItem("userEmail", data.user.email);
+      localStorage.setItem("userName", data.user.name);
+
       alert("✅ Login successful");
       window.location.href = "dashboard.html";
     } else {
       alert(data.message);
     }
-
   } catch (err) {
     console.error(err);
     alert("❌ " + err.message);
   }
 });
 </script>
+
 </body>
 </html>
